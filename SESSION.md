@@ -181,11 +181,12 @@ vercel --prod             # Production deployment
 - [x] Supabase migration template (001_initial_schema.sql)
 - [x] Vercel deployment config (vercel.json)
 - [x] GitHub Actions CI/CD (.github/workflows/ci.yml)
-- [x] Build verification (✅ passes)
+- [x] Build verification (✅ passes locally - Next.js 16.2.3)
 
 ### 🔄 In Progress
 - [ ] Supabase project creation (user needs to create on supabase.com)
 - [ ] Environment variables setup
+- [ ] Vercel deployment fix (see Deployment Fix section below)
 
 ### ⏳ Pending (Awaiting Business Logic MD Files)
 - [ ] Database tables (projects, resource_requests, etc.)
@@ -231,3 +232,61 @@ vercel --prod             # Production deployment
 - **External file sharing:** Google Drive, not Supabase Storage
 - **Role count may exceed 3:** Exact roles TBD from MD files
 - **Template used:** `with-supabase` example from Next.js official repo (cleanest, most proven)
+
+---
+
+## Vercel Deployment Fix (April 10, 2026)
+
+### Problem
+Vercel build fails with:
+```
+The Next.js output directory "app/.next" was not found at "/vercel/path0/app/.next"
+Running "install" command: `cd app && npm install`...
+Running "cd app && npm run build"
+```
+
+Vercel is looking for the Next.js app in a subdirectory `app/` instead of the repository root.
+
+### Root Cause
+The Vercel **project dashboard** has a stale **"Root Directory"** setting set to `app`. This is a Vercel project-level configuration that was set when the project was initially connected. The `vercel.json` file in the repo cannot override this dashboard setting.
+
+Our `vercel.json` is correctly configured:
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}
+```
+
+The Next.js app IS in the root directory (package.json, app/, next.config.ts are all at root level).
+
+### Fix Steps (Manual - Vercel Dashboard)
+
+1. Go to **https://vercel.com/dashboard**
+2. Select the **Innovizta_Portal** project
+3. Go to **Settings** → **General**
+4. Find **"Root Directory"** setting
+5. **Clear the field** (set it to empty / `.`) — it currently has `app` set
+6. Click **Save**
+7. Go to **Deployments** tab
+8. Click **Redeploy** on the latest failed deployment (or push a new commit to trigger redeploy)
+
+### Alternative: Delete & Recreate Vercel Project
+If the above doesn't work:
+1. Go to Vercel → Project Settings → **Delete Project**
+2. Go to **https://vercel.com/new**
+3. Import the GitHub repo: `innovizta-technologies/Innovizta_Portal`
+4. Ensure **Root Directory** is empty (not `app`)
+5. Add environment variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+6. Click Deploy
+
+### Build Verification
+- ✅ Local build passes: `npm run build` completes successfully
+- ✅ Next.js 16.2.3 with Turbopack
+- ✅ 14 routes generated (static + dynamic + proxy)
+- ✅ TypeScript compiles without errors
